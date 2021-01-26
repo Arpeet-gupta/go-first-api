@@ -25,5 +25,7 @@ var posts []Post
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/posts", addItem).Methods("POST")
+	router.HandleFunc("/posts", getAllPosts).Methods("GET")
+	router.HandleFunc("/posts/{id}", getPost).Methods("GET")
 	http.ListenAndServe(":8080", router)
 }
