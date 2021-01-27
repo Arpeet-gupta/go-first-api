@@ -27,5 +27,6 @@ func main() {
 	router.HandleFunc("/posts", addItem).Methods("POST")
 	router.HandleFunc("/posts", getAllPosts).Methods("GET")
 	router.HandleFunc("/posts/{id}", getPost).Methods("GET")
+	router.HandleFunc("/posts/{id}", updatePost).Methods("PUT")
 	http.ListenAndServe(":8080", router)
 }
