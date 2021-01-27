@@ -85,11 +85,32 @@ func patchPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patchPost := posts[id]
-
-	json.NewDecoder(r.Body).Decode(&patchPost)
+	patchPost := &posts[id]
+	json.NewDecoder(r.Body).Decode(patchPost)
 
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(patchPost)
+}
+
+func deletePost(w http.ResponseWriter, r *http.Request) {
+	idParam := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "ID could not converted to integer")
+		return
+	}
+
+	if id > len(posts) {
+		w.WriteHeader(404)
+		io.WriteString(w, "No post found with the specific id id")
+		return
+	}
+
+	posts = append(posts[:id], posts[id+1:]...)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(posts)
 }

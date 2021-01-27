@@ -29,5 +29,6 @@ func main() {
 	router.HandleFunc("/posts/{id}", getPost).Methods("GET")
 	router.HandleFunc("/posts/{id}", updatePost).Methods("PUT")
 	router.HandleFunc("/posts/{id}", patchPost).Methods("PATCH")
+	router.HandleFunc("/posts/{id}", deletePost).Methods("DELETE")
 	http.ListenAndServe(":8080", router)
 }
