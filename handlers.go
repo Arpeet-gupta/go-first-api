@@ -60,6 +60,25 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAllPosts(w http.ResponseWriter, r *http.Request) {
+	var posts []Post
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+	res, err := db.QueryContext(ctx, "SELECT * from posts")
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Printf("Error %s when fetching posts table", err)
+	}
+	defer res.Close()
+
+	for res.Next() {
+		var post Post
+		err := res.Scan(&post.Title, &post.Body, &post.Author)
+		if err != nil {
+			io.WriteString(w, err.Error())
+			log.Printf("Error %s when Scaning posts table result", err)
+		}
+		posts = append(posts, post)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(posts)
 }
