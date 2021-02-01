@@ -1,23 +1,62 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/Arpeet-gupta/go-first-api/v2/database"
 	"github.com/gorilla/mux"
 )
 
 func addItem(w http.ResponseWriter, r *http.Request) {
-	newItem := &Post{}
-	json.NewDecoder(r.Body).Decode(newItem)
-	fmt.Printf("%#v", newItem)
+	err := database.Createtable(db)
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Printf("Error %s when creating posts table", err)
+	}
 
-	posts = append(posts, *newItem)
-	w.Header().Set("Content-Type", "application.json")
-	json.NewEncoder(w).Encode(posts)
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+
+	stmt, err := db.PrepareContext(ctx, "INSERT INTO posts(title, body, author) VALUES(?, ?, ?)")
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Printf("Error %s when preparing SQL statement", err)
+	}
+	defer stmt.Close()
+
+	newItem := Post{}
+	err = json.NewDecoder(r.Body).Decode(&newItem)
+
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Fatal(err)
+	}
+	fmt.Printf("%#v\n", newItem)
+
+	res, err := stmt.ExecContext(ctx, newItem.Title, newItem.Body, newItem.Author)
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Printf("Error %s when inserting row into posts table", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		io.WriteString(w, err.Error())
+		log.Printf("Error %s when finding rows affected", err)
+	}
+	log.Printf("%d posts created ", rows)
+
+	res.LastInsertId()
+
+	// w.Header().Set("Content-Type", "")
+	io.WriteString(w, "New Post was created")
 }
 
 func getAllPosts(w http.ResponseWriter, r *http.Request) {
