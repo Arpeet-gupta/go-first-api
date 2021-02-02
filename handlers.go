@@ -17,6 +17,7 @@ import (
 func addItem(w http.ResponseWriter, r *http.Request) {
 	err := database.Createtable(db)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, err.Error())
 		log.Printf("Error %s when creating posts table", err)
 	}
@@ -26,6 +27,7 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 
 	stmt, err := db.PrepareContext(ctx, "INSERT INTO posts(title, body, author) VALUES(?, ?, ?)")
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, err.Error())
 		log.Printf("Error %s when preparing SQL statement", err)
 	}
@@ -42,12 +44,14 @@ func addItem(w http.ResponseWriter, r *http.Request) {
 
 	res, err := stmt.ExecContext(ctx, newItem.Title, newItem.Body, newItem.Author)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, err.Error())
 		log.Printf("Error %s when inserting row into posts table", err)
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, err.Error())
 		log.Printf("Error %s when finding rows affected", err)
 	}
@@ -63,8 +67,9 @@ func getAllPosts(w http.ResponseWriter, r *http.Request) {
 	var posts []Post
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
-	res, err := db.QueryContext(ctx, "SELECT * from posts")
+	res, err := db.QueryContext(ctx, "SELECT title, body, author from posts")
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, err.Error())
 		log.Printf("Error %s when fetching posts table", err)
 	}
@@ -74,6 +79,7 @@ func getAllPosts(w http.ResponseWriter, r *http.Request) {
 		var post Post
 		err := res.Scan(&post.Title, &post.Body, &post.Author)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, err.Error())
 			log.Printf("Error %s when Scaning posts table result", err)
 		}
@@ -84,22 +90,39 @@ func getAllPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func getPost(w http.ResponseWriter, r *http.Request) {
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+
 	idParam := mux.Vars(r)["id"]
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, "ID could not converted to integer")
+		log.Printf("ID %s could not converted to integer", idParam)
 		return
 	}
 
-	if id > len(posts) {
+	res, err := db.QueryContext(ctx, "SELECT title, body, author FROM posts WHERE id = ?", id)
+	if err != nil {
 		w.WriteHeader(404)
-		io.WriteString(w, "No post found with the specific id id")
+		io.WriteString(w, "No post found with the specific id")
+		log.Printf("No post found with the specific ID %s", idParam)
 		return
 	}
-	post := posts[id]
+	defer res.Close()
+	var post Post
+	// post := &Post{}
+	for res.Next() {
+		err := res.Scan(&post.Title, &post.Body, &post.Author)
+		if err != nil {
+			w.WriteHeader(404)
+			io.WriteString(w, "Error in fetching data from table for ID")
+			log.Printf("Error in fetching data from table for ID %s", idParam)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(post)
+	json.NewEncoder(w).Encode(&post)
 }
 
 func updatePost(w http.ResponseWriter, r *http.Request) {

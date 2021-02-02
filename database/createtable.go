@@ -11,7 +11,7 @@ import (
 func Createtable(db *sql.DB) error {
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
-	query := "CREATE TABLE IF NOT EXISTS posts(title text, body text, author varchar(200))"
+	query := "CREATE TABLE IF NOT EXISTS posts(id int primary key auto_increment, title text, body text, author varchar(200), created_at datetime default CURRENT_TIMESTAMP, updated_at datetime default CURRENT_TIMESTAMP)"
 
 	res, err := db.ExecContext(ctx, query)
 	if err != nil {
