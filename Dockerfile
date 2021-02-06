@@ -1,17 +1,20 @@
 FROM golang:1.15.8-alpine3.13 as build-env
-# All these steps will be cached
+LABEL maintainer="Arpeet Gupta <arpeet.gupta96@gmail.com>"
+
 RUN mkdir /go-author-api
 WORKDIR /go-author-api
-COPY go.mod . # <- COPY go.mod and go.sum files to the workspace
+COPY go.mod . 
 COPY go.sum .
 
-# Get dependancies - will also be cached if we won't change mod/sum
 RUN go mod download
-# COPY the source code as the last step
 COPY . .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o /go/bin/author
-FROM scratch # <- Second step to build minimal image
+
+FROM alpine:3.13.1
+RUN apk add --no-cache bash && \
+    apk add --update --no-cache ca-certificates git
 COPY --from=build-env /go/bin/author /go/bin/author
-ENTRYPOINT ["/go/bin/hello"]
+ENTRYPOINT ["/go/bin/author"]
+EXPOSE 8080
