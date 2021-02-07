@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	// mysql package"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/plugin/prometheus"
 )
 
 const (
@@ -16,51 +16,33 @@ const (
 )
 
 var (
-	//Db is mysql database connection pool object
+	//Db contains mysql's database connection pool struct
 	Db  *gorm.DB
 	err error
 )
 
 func dsn(dbName string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local", username, password, hostname, dbName)
+	return fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, hostname, dbName)
 }
 
 //CreateDataConnectionPool to create new connection pool
 func CreateDataConnectionPool(dbName string) error {
-	// db, err := sql.Open("mysql", dsn(""))
-	// if err != nil {
-	// 	log.Printf("Error %s when opening DB\n", err)
-	// 	return nil, err
-	// }
-
-	// ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancelfunc()
-
-	// res, err := db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS "+dbName)
-	// if err != nil {
-	// 	log.Printf("Error %s when creating DB\n", err)
-	// 	return nil, err
-	// }
-
-	// no, err := res.RowsAffected()
-	// if err != nil {
-	// 	log.Printf("Error %s when fetching rows", err)
-	// 	return nil, err
-	// }
-	// log.Printf("rows affected %d\n", no)
-	// db.Close()
-	//////////////////////////////////////////////////////////////////////////////////////////////////
-
-	Db, err = gorm.Open("mysql", dsn(dbName))
-	// err = Db.Ping()
+	Db, err = gorm.Open(mysql.Open(dsn(dbName)), &gorm.Config{})
 	if err != nil {
-		log.Printf("Error %s when creating connections", err)
+		log.Printf("Error when creating connection pool: %s", err)
 		return err
 	}
-	err = Db.DB().Ping()
-	if err != nil {
-		log.Printf("Error %s when creating connections", err)
-		return err
-	}
+
+	Db.Use(prometheus.New(prometheus.Config{
+		DBName:          dbName, // use `DBName` as metrics label
+		RefreshInterval: 15,     // Refresh metrics interval (default 15 seconds)
+		StartServer:     true,   // start http server to expose metrics
+		HTTPServerPort:  9090,   // configure http server port, default port 8080 (if you have configured multiple instances, only the first `HTTPServerPort` will be used to start server)
+		MetricsCollector: []prometheus.MetricsCollector{
+			&prometheus.MySQL{
+				VariableNames: []string{"Threads_running"},
+			},
+		}, // user defined metrics
+	}))
 	return nil
 }
